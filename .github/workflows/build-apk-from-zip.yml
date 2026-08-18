@@ -1,0 +1,96 @@
+name: Build Ahmed Games APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Find Ahmed Games ZIP
+        id: find_zip
+        shell: bash
+        run: |
+          ZIP_FILE=$(find . -maxdepth 2 -type f -iname "Ahmed_Games_GitHub_READY.zip" | head -n 1)
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ERROR: Ahmed_Games_GitHub_READY.zip was not found."
+            echo "ZIP files found:"
+            find . -type f -iname "*.zip"
+            exit 1
+          fi
+
+          echo "Found: $ZIP_FILE"
+          echo "zip_file=$ZIP_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Extract game ZIP
+        shell: bash
+        run: |
+          mkdir -p game_project
+          unzip -o "${{ steps.find_zip.outputs.zip_file }}" -d game_project
+
+          echo "Project files:"
+          ls -la game_project
+
+      - name: Check Android project
+        shell: bash
+        run: |
+          if [ ! -f "game_project/settings.gradle" ] && [ ! -f "game_project/settings.gradle.kts" ]; then
+            echo "ERROR: settings.gradle was not found."
+            find game_project -maxdepth 3 -type f | sort
+            exit 1
+          fi
+
+          if [ ! -d "game_project/app" ]; then
+            echo "ERROR: app folder was not found."
+            exit 1
+          fi
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle 8.7
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+
+      - name: Build Ahmed Games APK
+        working-directory: game_project
+        shell: bash
+        run: |
+          gradle :app:assembleDebug --stacktrace
+
+      - name: Check APK
+        shell: bash
+        run: |
+          APK="game_project/app/build/outputs/apk/debug/app-debug.apk"
+
+          if [ ! -f "$APK" ]; then
+            echo "ERROR: APK was not created."
+            find game_project/app/build -type f 2>/dev/null || true
+            exit 1
+          fi
+
+          echo "APK created successfully:"
+          ls -lh "$APK"
+
+      - name: Upload Ahmed Games APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ahmed-Games-APK
+          path: game_project/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
