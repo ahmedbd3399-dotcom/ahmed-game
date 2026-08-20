@@ -22,12 +22,10 @@ jobs:
         id: find_zip
         shell: bash
         run: |
-          ZIP_FILE=$(find . -maxdepth 2 -type f -iname "Ahmed_Games_GitHub_READY.zip" | head -n 1)
+          ZIP_FILE=$(find . -maxdepth 2 -type f -iname "*.zip" -printf '%T@ %p\n' | sort -rn | head -n 1 | cut -d' ' -f2-)
 
           if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: Ahmed_Games_GitHub_READY.zip was not found."
-            echo "ZIP files found:"
-            find . -type f -iname "*.zip"
+            echo "ERROR: no .zip file found in the repo root."
             exit 1
           fi
 
